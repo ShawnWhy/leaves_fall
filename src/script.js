@@ -4,18 +4,60 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import * as dat from 'lil-gui'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 // import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
-import { LoopOnce, SphereGeometry, TextureLoader } from 'three'
+import { LoopOnce, SphereGeometry, TextureLoader, Vector3 } from 'three'
 import $ from "./Jquery"
 import gsap from "gsap"
 import { ARButton } from 'three/examples/jsm/webxr/ARButton.js';
-import { GridBroadphase } from 'cannon'
+import { Cylinder, GridBroadphase } from 'cannon'
+import CANNON from 'cannon'
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils';
+const textureLoader = new THREE.TextureLoader()
+
+const raycaster = new THREE.Raycaster()
+
+//cannon
+// console.log(CANNON)
+const world = new CANNON.World()
+world.broadphase = new CANNON.SAPBroadphase(world)
+world.allowSleep = true
+world.gravity.set(0, - 9.82, 0)
+
+const defaultMaterial = new CANNON.Material('default')
+const defaultContactMaterial = new CANNON.ContactMaterial(
+    defaultMaterial,
+    defaultMaterial,
+    {
+        friction: 20,
+        restitution: 0.001
+    }
+)
+//physics floor
+const floorShape = new CANNON.Plane()
+const floorBody = new CANNON.Body()
+floorBody.mass = 0
+floorBody.position=new CANNON.Vec3(0, -2, 0)
+floorBody.addShape(floorShape)
+floorBody.quaternion.setFromAxisAngle(
+    new CANNON.Vec3(-1,0,0),
+    Math.PI *0.5
+)
+world.addBody(floorBody)
 
 let reticle= null
 let camera;
 let renderer;
 const container = document.createElement('div');
 document.body.appendChild(container);
-const textureLoader = new THREE.TextureLoader()
+
+//physics sweeper
+const sweeperShape = new CANNON.Sphere(3)
+const sweeperBody = new CANNON.Body({
+    mass: 0,
+    position: new CANNON.Vec3(0, -3.5, 0),
+    shape: sweeperShape,
+    material: defaultMaterial
+})
+world.addBody(sweeperBody)
 
 // Canvas
 const canvas = document.querySelector('canvas.webgl')
@@ -23,73 +65,7 @@ const canvas = document.querySelector('canvas.webgl')
 // Scene
 const scene = new THREE.Scene()
 
-
-function init() {
-  addReticleToScene()
-    
-  const button = ARButton.createButton(renderer, {
-    requiredFeatures: ["hit-test"]
-  });
-  
-        document.body.appendChild(button);
-  
-        window.addEventListener('resize', onWindowResize, false);
-    }
-  
-
-    const createFlower = ()=>{
-
-    console.log("createflower")
-    let newFlower = flower.clone();
-    console.log(newFlower);
-
-      
-    }
-  
-    const createButterFly = function(){
-      let newButterFly = butterfly.clone()
-      console.log(newButterFly);
-      console.log('createButterfly')
-        mixer = new THREE.AnimationMixer(newButterfly)
-
-        scene.add(newButterFly)
-        
-      
-      
-      
-      }
-    
-    
-   
-  
-    const createGrass =()=>{
-  
-
-      let randGrass= Math.floor(Math.random()*2+1)
-      console.log(randGrass)
-      let grass
-    
-      switch(randGrass){
-        case 1: grass= new THREE.Mesh(grassgeo1, grassMaterial)
-          break;
-          
-        case 2: grass= new THREE.Mesh(grassgeo2, grassMaterial)
-          
-    }
-      grass.position.setFromMatrixPosition(reticle.matrix);
-      grass.quaternion.setFromRotationMatrix(reticle.matrix);
-      // grass.rotation.x += Math.PI*.5
-      
-      grass.scale.x=.1
-      grass.scale.y=.1
-      grass.scale.z=.1
-      console.log(grass)
-      console.log(reticle.matrix)
-      scene.add(grass)
-    }
-
 const gltfLoader = new GLTFLoader()
-// gltfLoader.setDRACOLoader(dracoLoader)
 
 let hitTestSource = null;
 let localSpace = null;
@@ -141,150 +117,195 @@ function addReticleToScene(){
 
 camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
 
-let grassgeo1;
-let grassgeo2;
+function init() {
+  addReticleToScene()
+    
+  const button = ARButton.createButton(renderer, {
+    requiredFeatures: ["hit-test"]
+  });
+  
+        document.body.appendChild(button);
+  
+        window.addEventListener('resize', onWindowResize, false);
+
+    }
+  
+//list all the variables
+let action = "sweep";
+let tree1main;
+let tree2main;
+let tree3main;
 let tree1;
 let tree2;
 let tree3;
-let butterfly;
-let flower;
+let leaf;
+let sweeperTool;
+let leafGeo;
+let treeIntersect = []
+let objectsToUpdate = [];
+let trees = [];
+let animations = [];
+
+
+const sweeperGeo = new THREE.SphereGeometry(3)
+const sweeperGeoMaterial = new THREE.MeshStandardMaterial({color:"green"})
+const sweeperMesh = new THREE.Mesh(sweeperGeo, sweeperGeoMaterial)
+scene.add(sweeperMesh)
 
 
 gltfLoader.load(
 
-  '/butterfly.glb',
+  '/trees.glb',
   (gltf) =>
   {
-    butterfly = gltf.scene
+    tree1main = gltf
+    tree1 = gltf.scene
+    console.log("tree1")
+    console.log(tree1)
   }
 )
 gltfLoader.load(
 
-  '/flower.glb',
+  '/trees2.glb',
   (gltf) =>
   {
-    flower = gltf.scene
-  }
-)
-
-gltfLoader.load(
-
-  '/tree2.glb',
-  (gltf) =>
-  {
+    tree2main = gltf
     tree2 = gltf.scene
+    console.log("tree2")
+    console.log(tree2)
   }
 )
+
 gltfLoader.load(
 
-  '/tree3.glb',
+  '/trees3.glb',
   (gltf) =>
   {
+    tree3main = gltf
     tree3 = gltf.scene
-  }
-)
-gltfLoader.load(
-
-  '/tree3.glb',
-  (gltf) =>
-  {
-    tree3 = gltf.scene
+    console.log("tree3")
+    console.log(tree3)
   }
 )
 
 
 gltfLoader.load(
-    '/grass.glb',
+    '/leaf.glb',
     (gltf) =>
     {
-        let grassscene=gltf.scene
-        console.log(grassscene)
-        grassgeo1 = grassscene.children[0].geometry
+        let leafscene=gltf.scene
+        
+        leafGeo = leafscene.children[0].geometry
+
+
+
+
+        for (let i=0; i<200; i++){
+          createLeafInitial(.5,{
+            x: (Math.random() *20) - 10,
+            y: -1,
+            z: (Math.random() *10)*-1 
+          })
+          }
 
 
     }
 )
 
-createFlower();
 
 
 const createTree = function(){
 
-  console.log("singleset")
-  const randtree = Math.random()+1
-  const cupbow = new CANNON.Cylinder(.0310,.02,.026,8)
-  const plateDrop = new CANNON.Cylinder(.06,.03,.01,8)
-
-  const cupHandle = new CANNON.Cylinder(.02,.02,.002,8)
-  // cupHandle.quaternion.setClearColor(new CANNON.Vec3())
   
-  const cupbody = new CANNON.Body({mass:1})
-  const platebody = new CANNON.Body({mass:1})
-  cupbody.quaternion.setFromAxisAngle(new CANNON.Vec3(-1,0,0),Math.PI *0.5)
-  platebody.quaternion.setFromAxisAngle(new CANNON.Vec3(-1,0,0),Math.PI *0.5)
-  cupbody.position=new CANNON.Vec3(0, .1, -.5)
-  platebody.position=new CANNON.Vec3(0, .08, -.5)
+  let treeMesh;
 
-
-
-
-
-  cupbody.material=defaultMaterial;
-  platebody.material=defaultMaterial
-  cupbody.addShape(cupbow,new CANNON.Vec3(0,0,0))
-  cupbody.addShape(cupHandle,new CANNON.Vec3(.115,0,0))
-  platebody.addShape(plateDrop,new CANNON.Vec3(0,0,0))
-
-
-
-  const singleFakeCup = new THREE.Group()
-  // singleplateMesh.rotation.x =  Math.PI * 0.5
-  const singleCup= singleGroup.children[1].clone()
-  const newsingleplate= singleGroup.children[0].clone()
-  newsingleplate.rotation.x =  Math.PI * 0.5
-  newsingleplate.position.z+=.03
-
-  singleCup.rotation.x +=  Math.PI * 0.5
-  singleCup.position.z +=.02
-  singleCup.position.y-=.14;
-  singleFakeCup.add(singleCup)
-  const plateMesh = new THREE.Group();
-  plateMesh.add(newsingleplate)
-  // console.log(singleGroup)
-  cupbody.sleepSpeedLimit = 1.0;
-  platebody.sleepSpeedLimit = 1.0;
-  plateArray.push(plateMesh)
-  
-  
-  plateMesh.scale.set(.2,.2,.2)
-  singleFakeCup.scale.set(.2,.2,.2)
-  singleFakeCup.position.set(0,0,-.5).applyMatrix4(controller.matrixWorld);
-  plateMesh.position.set(0,-.02,-.5).applyMatrix4(controller.matrixWorld);
-  platebody.position.copy(plateMesh.position)
-  cupbody.position.copy(singleFakeCup.position)
-  world.add(platebody)
-  scene.add(plateMesh)
-  world.addBody(cupbody)
-  scene.add(singleFakeCup)
  
+  let randTree= Math.floor(Math.random()*3+1)
+
+  switch(randTree){
+    case 1 : treeMesh = SkeletonUtils.clone(tree1)
+    break;
+
+    case 2 :  treeMesh = SkeletonUtils.clone(tree2)
+    break;
+
+    case 3 :  treeMesh = SkeletonUtils.clone(tree3)
+    }
+    treeMesh.scale.set(.3,.3,.3)
+    treeMesh.position.setFromMatrixPosition(reticle.matrix);
+    // newFlower.quaternion.setFromRotationMatrix(reticle.matrix);
+    // console.log(reticle)
+    // if( reticle.quaternion.z > Math.PI*.1 || reticle.quaternion.x>Math.PI*.1 ){
+
+      treeMesh.position.y = 1
 
 
+    scene.add(treeMesh)
+    trees.push(treeMesh)
 
+    
+    gsap.to( treeMesh.position,{duration:.3,y:-2})
 
-  objectsToUpdate.push({singleFakeCup,cupbody,plateMesh,platebody})
-  
+ 
+   
+
 }
 
-gltfLoader.load(
-  '/grass2.glb',
-  (gltf) =>
-  {
-    let grassscene=gltf.scene
-    console.log(grassscene)
-    grassgeo2 = grassscene.children[0].geometry
 
-  }
-)
+const sweepLeaves = ()=>{
+  console.log("sweepleaves")
+  var sweepPosition = new THREE.Vector3();
+  // console.log(reticle);
+  sweepPosition.getPositionFromMatrix( reticle.matrixWorld );
+  // console.log(sweepPosition);
+  sweeperBody.position.set(sweepPosition.x,-3.5,sweepPosition.z)
+  // console.log(sweeperBody);
+  // sweepertool.position.setFromMatrixPosition(reticle.matrix);
+
+
+}
+
+
+const createLeafInitial = (radius, position) =>
+{
+    const LeafColor = function getRandomColor() {
+        var letters = '0123456789ABCDEF';
+        var color = '#';
+        for (var i = 0; i < 6; i++) {
+          color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+      }
+      const leafMaterial = new THREE.MeshStandardMaterial({color:LeafColor()})
+
+    // Three.js mesh
+    
+    const mesh = new THREE.Mesh(leafGeo, leafMaterial)
+    mesh.scale.set(radius, radius, radius)
+    // mesh.rotation.y=Math.PI*.5
+    mesh.position.copy(position)
+    scene.add(mesh)
+
+    // Cannon.js body
+    const shape = new CANNON.Box(new CANNON.Vec3(.1,.2,.01))
+
+    const body = new CANNON.Body({
+        mass: .01,
+        position: new CANNON.Vec3(0, 1, -1),
+        shape: shape,
+        material: defaultMaterial
+    })
+    body.position.copy(position)
+    // body.applyForce(new CANNON.Vec3(0, 0, -10), body.position)
+    body.applyLocalForce(new CANNON.Vec3(0, .1, -.1), body.position)
+
+    // body.addEventListener('collide', playHitSound)
+
+    world.addBody(body)
+
+    // Save in objects
+    objectsToUpdate.push({ mesh, body })
+}
 
 
 const sizes = {
@@ -308,16 +329,23 @@ window.addEventListener('resize', () =>
 })
 
   
-
-
-
 container.appendChild(renderer.domElement);
 
+
 controller.addEventListener('select', ()=>{
+
+
   
+
+ 
   if(reticle.visible){
-  console.log("creategrass")
-  createGrass()
+    if(action =="tree"){
+    createTree();
+    }
+    else if(action =="sweep"){
+    sweepLeaves()
+    }
+  
   }
     })
 /**
@@ -367,13 +395,131 @@ let previousTime = 0
 
 
 init();
+
+
+
+
+
+
 animate();
 
 function render(timestamp, frame) {
 const elapsedTime = clock.getElapsedTime()
 const deltaTime = elapsedTime - oldElapsedTime
 oldElapsedTime = elapsedTime
+raycaster.setFromCamera(new THREE.Vector3(0,0,-.05).applyMatrix4(controller.matrixWorld), camera)
+
+//tree Intersect
+
+treeIntersect = raycaster.intersectObjects(trees)
+
+
+  if(treeIntersect.length>0){
+    
+    const selectedTree = treeIntersect[0].object
+    let selectedTreeParent;
+    let mixerTree; 
+    
+    // console.log(treeIntersect[0])
+    let actionTree;
+    switch(selectedTree.name){
+      case "leaves":
+        selectedTreeParent = treeIntersect[0].object.parent.parent
+        mixerTree = new THREE.AnimationMixer(selectedTreeParent)
+        actionTree = mixerTree.clipAction(tree1main.animations[0])
+           // actionTree.clampWhenFinished = true;
+    actionTree.timeScale=.5
+    actionTree.setLoop( THREE.LoopOnce )
+    animations.push(mixerTree)
+    actionTree.play();
+        break;
+      case "leaves001":
+        selectedTreeParent = treeIntersect[0].object.parent.parent
+        mixerTree = new THREE.AnimationMixer(selectedTreeParent)
+        actionTree = mixerTree.clipAction(tree2main.animations[0])
+           // actionTree.clampWhenFinished = true;
+    actionTree.timeScale=.5
+    actionTree.setLoop( THREE.LoopOnce )
+    animations.push(mixerTree)
+    actionTree.play();
+        break;
+
+      case "leaves002":
+        selectedTreeParent = treeIntersect[0].object.parent.parent
+        mixerTree = new THREE.AnimationMixer(selectedTreeParent)
+        
+        actionTree = mixerTree.clipAction(tree3main.animations[0])
+           // actionTree.clampWhenFinished = true;
+    actionTree.timeScale=.5
+    actionTree.setLoop( THREE.LoopOnce )
+    animations.push(mixerTree)
+    actionTree.play();
+    break;
+    case "tree":
+    selectedTreeParent = treeIntersect[0].object.parent
+     mixerTree = new THREE.AnimationMixer(selectedTreeParent)
+      actionTree = mixerTree.clipAction(tree1main.animations[0])
+         // actionTree.clampWhenFinished = true;
+  actionTree.timeScale=.5
+  actionTree.setLoop( THREE.LoopOnce )
+  animations.push(mixerTree)
+  actionTree.play();
+      break;
+    case "tree001":
+     selectedTreeParent = treeIntersect[0].object.parent
+     mixerTree = new THREE.AnimationMixer(selectedTreeParent)
+      actionTree = mixerTree.clipAction(tree2main.animations[0])
+         // actionTree.clampWhenFinished = true;
+  actionTree.timeScale=.5
+  actionTree.setLoop( THREE.LoopOnce )
+  animations.push(mixerTree)
+  actionTree.play();
+      break;
+
+    case "tree002":
+      selectedTreeParent = treeIntersect[0].object.parent
+     mixerTree = new THREE.AnimationMixer(selectedTreeParent)
+      actionTree = mixerTree.clipAction(tree3main.animations[0])
+         // actionTree.clampWhenFinished = true;
+  actionTree.timeScale=.5
+  actionTree.setLoop( THREE.LoopOnce )
+  animations.push(mixerTree)
+  actionTree.play();
+
+
+    }
+   
  
+
+    // console.log("selected tree")
+    // console.log(mixerTree)
+    // console.log(treeIntersect)
+
+  }
+
+
+  if(animations.length>0)
+
+{
+  
+  animations.forEach(function(mixer){
+      mixer.update(deltaTime)
+
+  })
+
+}
+
+renderer.render(scene, camera);
+
+for(const object of objectsToUpdate)
+{
+    object.mesh.position.copy(object.body.position)
+    object.mesh.quaternion.copy(object.body.quaternion)
+    // object.body.applyForce(new CANNON.Vec3(- 10, 0, 0), object.body.position)
+}
+
+sweeperMesh.position.copy(sweeperBody.position)
+
   if(frame){
     
     if(!hitTestSourceInitialized){
@@ -397,48 +543,7 @@ oldElapsedTime = elapsedTime
     }
   }
   
-        renderer.render(scene, camera);
-
-  
+   
+  world.step(1 / 60, deltaTime, 3)
 
 }
-
-
-// gltfLoader.load(
-//   '/Saury.gltf',
-//   (gltf) =>
-//   {
-      
- 
-
-//      nesse=gltf.scene
-//      console.log(gltf)
-//       // console.log(boy)
-//       nesse.position.x+=10
-//       // nesse.scale.set(0.25, 0.25, 0.25)
-      
-    
-
-      
-
-          
-
-//       nesseGroup = new THREE.Group()
-//       nesseGroup.add(nesse)
-      
-
-
-//       // Animation
-//       mixer = new THREE.AnimationMixer(nesse)
-//       swim = mixer.clipAction(gltf.animations[0]) 
-//       console.log(swim)
-
-//       swim.timeScale=2.5
-      
-      
-//       scene.add(nesseGroup)
-//       swim.play()
-      
-
-//   }
-// )
