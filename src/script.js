@@ -131,7 +131,7 @@ function init() {
     }
   
 //list all the variables
-let action = "sweep";
+let action = "tree";
 let tree1main;
 let tree2main;
 let tree3main;
@@ -148,7 +148,7 @@ let animations = [];
 
 
 const sweeperGeo = new THREE.SphereGeometry(3)
-const sweeperGeoMaterial = new THREE.MeshStandardMaterial({color:"green"})
+const sweeperGeoMaterial = new THREE.MeshStandardMaterial({color:"green", opacity:0.0, transparent:true})
 const sweeperMesh = new THREE.Mesh(sweeperGeo, sweeperGeoMaterial)
 scene.add(sweeperMesh)
 
@@ -201,7 +201,7 @@ gltfLoader.load(
 
 
         for (let i=0; i<200; i++){
-          createLeafInitial(.5,{
+          createLeafInitial(.2,{
             x: (Math.random() *20) - 10,
             y: -1,
             z: (Math.random() *10)*-1 
@@ -212,6 +212,119 @@ gltfLoader.load(
     }
 )
 
+const leavesFall=()=>{
+
+  if(treeIntersect.length>0){
+    
+    const selectedTree = treeIntersect[0].object
+    let selectedTreeParent;
+    let mixerTree; 
+    let leaveMass;
+    
+    // console.log(treeIntersect[0])
+    let actionTree;
+    switch(selectedTree.name){
+      case "leaves":
+        leaveMass = selectedTree;
+        selectedTreeParent = selectedTree.parent.parent
+        mixerTree = new THREE.AnimationMixer(selectedTreeParent)
+        actionTree = mixerTree.clipAction(tree1main.animations[0])
+           // actionTree.clampWhenFinished = true;
+    actionTree.timeScale=.5
+    actionTree.setLoop( THREE.LoopOnce )
+    animations.push(mixerTree)
+    actionTree.play();
+        break;
+      case "leaves001":
+        leaveMass = selectedTree;
+        selectedTreeParent = selectedTree.parent.parent
+        mixerTree = new THREE.AnimationMixer(selectedTreeParent)
+        actionTree = mixerTree.clipAction(tree2main.animations[0])
+           // actionTree.clampWhenFinished = true;
+    actionTree.timeScale=.5
+    actionTree.setLoop( THREE.LoopOnce )
+    animations.push(mixerTree)
+    actionTree.play();
+        break;
+
+      case "leaves002":
+        leaveMass = selectedTree;
+        selectedTreeParent = selectedTree.parent.parent
+        mixerTree = new THREE.AnimationMixer(selectedTreeParent)
+        
+        actionTree = mixerTree.clipAction(tree3main.animations[0])
+           // actionTree.clampWhenFinished = true;
+    actionTree.timeScale=.5
+    actionTree.setLoop( THREE.LoopOnce )
+    animations.push(mixerTree)
+    actionTree.play();
+    break;
+    case "tree":
+    leaveMass = selectedTree.parent.children[0].children[0].children[0];
+    selectedTreeParent = selectedTree.parent
+     mixerTree = new THREE.AnimationMixer(selectedTreeParent)
+      actionTree = mixerTree.clipAction(tree1main.animations[0])
+         // actionTree.clampWhenFinished = true;
+  actionTree.timeScale=.5
+  actionTree.setLoop( THREE.LoopOnce )
+  animations.push(mixerTree)
+  actionTree.play();
+      break;
+    case "tree001":
+      leaveMass = selectedTree.parent.children[0].children[0].children[0];
+     selectedTreeParent = selectedTree.parent
+     mixerTree = new THREE.AnimationMixer(selectedTreeParent)
+      actionTree = mixerTree.clipAction(tree2main.animations[0])
+         // actionTree.clampWhenFinished = true;
+  actionTree.timeScale=.5
+  actionTree.setLoop( THREE.LoopOnce )
+  animations.push(mixerTree)
+  actionTree.play();
+      break;
+
+    case "tree002":
+      leaveMass = selectedTree.parent.children[0].children[0].children[0];
+      selectedTreeParent = selectedTree.parent
+     mixerTree = new THREE.AnimationMixer(selectedTreeParent)
+      actionTree = mixerTree.clipAction(tree3main.animations[0])
+         // actionTree.clampWhenFinished = true;
+  actionTree.timeScale=.5
+  actionTree.setLoop( THREE.LoopOnce )
+  animations.push(mixerTree)
+  actionTree.play();
+
+
+    }
+
+    
+   console.log(leaveMass)
+  //  leaveMass.updateMatrixWorld();
+  //  let leaveMassClone = leaveMass.clone()
+   
+  // leaveMassClone.applyMatrix4( leaveMass.matrixWorld );
+   let DotCount = leaveMass.geometry.getAttribute('position')
+   for (let i=0; i<20; i++){
+    let randomLeaf = Math.floor(Math.random()*10000)
+    let vertex = new THREE.Vector3();
+    vertex.fromBufferAttribute( DotCount, randomLeaf );
+    leaveMass.localToWorld( vertex );
+    
+    createLeafInitial(.2,
+      vertex
+    )
+    
+
+
+
+   }
+ 
+
+    // console.log("selected tree")
+    // console.log(mixerTree)
+    // console.log(treeIntersect)
+
+  }
+}
 
 
 const createTree = function(){
@@ -258,7 +371,9 @@ const sweepLeaves = ()=>{
   // console.log(reticle);
   sweepPosition.getPositionFromMatrix( reticle.matrixWorld );
   // console.log(sweepPosition);
-  sweeperBody.position.set(sweepPosition.x,-3.5,sweepPosition.z)
+  gsap.to( sweeperBody.position,{duration:.3,z:sweepPosition.z, x:sweepPosition.x })
+
+  // sweeperBody.position.set(sweepPosition.x,-3.5,sweepPosition.z)
   // console.log(sweeperBody);
   // sweepertool.position.setFromMatrixPosition(reticle.matrix);
 
@@ -287,7 +402,7 @@ const createLeafInitial = (radius, position) =>
     scene.add(mesh)
 
     // Cannon.js body
-    const shape = new CANNON.Box(new CANNON.Vec3(.1,.2,.01))
+    const shape = new CANNON.Box(new CANNON.Vec3(.2,.4,.01))
 
     const body = new CANNON.Body({
         mass: .01,
@@ -335,11 +450,11 @@ container.appendChild(renderer.domElement);
 controller.addEventListener('select', ()=>{
 
 
-  
+  leavesFall();
 
  
   if(reticle.visible){
-    if(action =="tree"){
+    if(action =="tree" && treeIntersect.length<1){
     createTree();
     }
     else if(action =="sweep"){
@@ -414,88 +529,7 @@ raycaster.setFromCamera(new THREE.Vector3(0,0,-.05).applyMatrix4(controller.matr
 treeIntersect = raycaster.intersectObjects(trees)
 
 
-  if(treeIntersect.length>0){
-    
-    const selectedTree = treeIntersect[0].object
-    let selectedTreeParent;
-    let mixerTree; 
-    
-    // console.log(treeIntersect[0])
-    let actionTree;
-    switch(selectedTree.name){
-      case "leaves":
-        selectedTreeParent = treeIntersect[0].object.parent.parent
-        mixerTree = new THREE.AnimationMixer(selectedTreeParent)
-        actionTree = mixerTree.clipAction(tree1main.animations[0])
-           // actionTree.clampWhenFinished = true;
-    actionTree.timeScale=.5
-    actionTree.setLoop( THREE.LoopOnce )
-    animations.push(mixerTree)
-    actionTree.play();
-        break;
-      case "leaves001":
-        selectedTreeParent = treeIntersect[0].object.parent.parent
-        mixerTree = new THREE.AnimationMixer(selectedTreeParent)
-        actionTree = mixerTree.clipAction(tree2main.animations[0])
-           // actionTree.clampWhenFinished = true;
-    actionTree.timeScale=.5
-    actionTree.setLoop( THREE.LoopOnce )
-    animations.push(mixerTree)
-    actionTree.play();
-        break;
 
-      case "leaves002":
-        selectedTreeParent = treeIntersect[0].object.parent.parent
-        mixerTree = new THREE.AnimationMixer(selectedTreeParent)
-        
-        actionTree = mixerTree.clipAction(tree3main.animations[0])
-           // actionTree.clampWhenFinished = true;
-    actionTree.timeScale=.5
-    actionTree.setLoop( THREE.LoopOnce )
-    animations.push(mixerTree)
-    actionTree.play();
-    break;
-    case "tree":
-    selectedTreeParent = treeIntersect[0].object.parent
-     mixerTree = new THREE.AnimationMixer(selectedTreeParent)
-      actionTree = mixerTree.clipAction(tree1main.animations[0])
-         // actionTree.clampWhenFinished = true;
-  actionTree.timeScale=.5
-  actionTree.setLoop( THREE.LoopOnce )
-  animations.push(mixerTree)
-  actionTree.play();
-      break;
-    case "tree001":
-     selectedTreeParent = treeIntersect[0].object.parent
-     mixerTree = new THREE.AnimationMixer(selectedTreeParent)
-      actionTree = mixerTree.clipAction(tree2main.animations[0])
-         // actionTree.clampWhenFinished = true;
-  actionTree.timeScale=.5
-  actionTree.setLoop( THREE.LoopOnce )
-  animations.push(mixerTree)
-  actionTree.play();
-      break;
-
-    case "tree002":
-      selectedTreeParent = treeIntersect[0].object.parent
-     mixerTree = new THREE.AnimationMixer(selectedTreeParent)
-      actionTree = mixerTree.clipAction(tree3main.animations[0])
-         // actionTree.clampWhenFinished = true;
-  actionTree.timeScale=.5
-  actionTree.setLoop( THREE.LoopOnce )
-  animations.push(mixerTree)
-  actionTree.play();
-
-
-    }
-   
- 
-
-    // console.log("selected tree")
-    // console.log(mixerTree)
-    // console.log(treeIntersect)
-
-  }
 
 
   if(animations.length>0)
