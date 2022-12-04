@@ -402,10 +402,21 @@ const sweepLeaves = ()=>{
 const createLeafInitial = (radius, position) =>
 {
     const LeafColor = function getRandomColor() {
-        var letters = '0123456789ABCDEF';
-        var color = '#';
-        for (var i = 0; i < 6; i++) {
-          color += letters[Math.floor(Math.random() * 16)];
+        // var letters = '0123456789ABCDEF';
+        // var color = '#';
+        // for (var i = 0; i < 6; i++) {
+        //   color += letters[Math.floor(Math.random() * 16)];
+        // }
+        var rand = Math.floor(Math.random()*3)
+        switch(rand){
+          case 0 :
+            return "red"
+            break;
+          case 1 :
+            return "yellow"
+            break;
+          case 2 :
+            return "orange"
         }
         return color;
       }
