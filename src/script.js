@@ -131,6 +131,10 @@ function init() {
     }
   
 //list all the variables
+let intersectsTB;
+let intersectsWB;
+let treeButton
+let windButton
 let action = "tree";
 let tree1main;
 let tree2main;
@@ -146,11 +150,37 @@ let objectsToUpdate = [];
 let trees = [];
 let animations = [];
 
+const treeButtonTexture = textureLoader.load('/tree.png')
+const windButtonTexture = textureLoader.load('/wind.png')
+
+const windButtonMaterial = new THREE.MeshBasicMaterial({map:windButtonTexture})
+const treeButtonMaterial = new THREE.MeshBasicMaterial({map:treeButtonTexture})
+
+const buttonGeo = new THREE.PlaneGeometry(.1, .1);
+windButtonMaterial.side = THREE.DoubleSide
+treeButtonMaterial.side = THREE.DoubleSide
+treeButtonMaterial.transparent= true;
+windButtonMaterial.transparent= true;
+
+
+treeButton = new THREE.Mesh(buttonGeo, treeButtonMaterial)
+windButton = new THREE.Mesh(buttonGeo, windButtonMaterial)
+windButton.position.x+=.3
+treeButton.position.z -=.5
+windButton.position.z-=.5
+windButton.rotateY=Math.PI*.5
+treeButton.rotateY=Math.PI*.5
+
+scene.add(windButton)
+scene.add(treeButton)
+
 
 const sweeperGeo = new THREE.SphereGeometry(3)
 const sweeperGeoMaterial = new THREE.MeshStandardMaterial({color:"green", opacity:0.0, transparent:true})
 const sweeperMesh = new THREE.Mesh(sweeperGeo, sweeperGeoMaterial)
 scene.add(sweeperMesh)
+
+
 
 
 gltfLoader.load(
@@ -292,9 +322,7 @@ const leavesFall=()=>{
   actionTree.setLoop( THREE.LoopOnce )
   animations.push(mixerTree)
   actionTree.play();
-
-
-    }
+ }
 
     
    console.log(leaveMass)
@@ -312,10 +340,7 @@ const leavesFall=()=>{
     createLeafInitial(.2,
       vertex
     )
-    
-
-
-
+ 
    }
  
 
@@ -359,9 +384,6 @@ const createTree = function(){
     
     gsap.to( treeMesh.position,{duration:.3,y:-2})
 
- 
-   
-
 }
 
 
@@ -372,10 +394,6 @@ const sweepLeaves = ()=>{
   sweepPosition.getPositionFromMatrix( reticle.matrixWorld );
   // console.log(sweepPosition);
   gsap.to( sweeperBody.position,{duration:.3,z:sweepPosition.z, x:sweepPosition.x })
-
-  // sweeperBody.position.set(sweepPosition.x,-3.5,sweepPosition.z)
-  // console.log(sweeperBody);
-  // sweepertool.position.setFromMatrixPosition(reticle.matrix);
 
 
 }
@@ -417,6 +435,7 @@ const createLeafInitial = (radius, position) =>
     // body.addEventListener('collide', playHitSound)
 
     world.addBody(body)
+    body.linearDamping= .8
 
     // Save in objects
     objectsToUpdate.push({ mesh, body })
@@ -446,9 +465,31 @@ window.addEventListener('resize', () =>
   
 container.appendChild(renderer.domElement);
 
+// controller.addEventListener('select', ()=>{
 
+//   if(intersectsTB.length>0){
+
+//     action = "tree"
+//   }
+
+//   else if ( intersectsWB.length>0){
+
+//     action = "sweep"
+//   }
+
+// })
 controller.addEventListener('select', ()=>{
 
+
+    if(intersectsTB.length>0){
+
+    action = "tree"
+  }
+
+  else if ( intersectsWB.length>0){
+
+    action = "sweep"
+  }
 
   leavesFall();
 
@@ -522,7 +563,37 @@ function render(timestamp, frame) {
 const elapsedTime = clock.getElapsedTime()
 const deltaTime = elapsedTime - oldElapsedTime
 oldElapsedTime = elapsedTime
+
 raycaster.setFromCamera(new THREE.Vector3(0,0,-.05).applyMatrix4(controller.matrixWorld), camera)
+intersectsTB = raycaster.intersectObject(treeButton)
+intersectsWB = raycaster.intersectObject(windButton)
+
+if(intersectsTB.length>0 && treeButton){
+
+  treeButton.rotation.z +=.1
+
+}
+
+if(intersectsWB.length>0 && windButton){
+
+  windButton.rotation.z +=.1
+
+}
+
+
+
+if(action ==  "tree" && treeButton){
+
+  treeButton.rotation.y +=.1
+
+}
+if(action == "sweep" && windButton){
+
+  windButton.rotation.y +=.1
+
+}
+
+
 
 //tree Intersect
 
