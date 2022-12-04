@@ -328,6 +328,8 @@ const leavesFall=()=>{
    console.log(leaveMass)
   //  leaveMass.updateMatrixWorld();
   //  let leaveMassClone = leaveMass.clone()
+   setTimeout(() => {
+    
    
   // leaveMassClone.applyMatrix4( leaveMass.matrixWorld );
    let DotCount = leaveMass.geometry.getAttribute('position')
@@ -342,6 +344,8 @@ const leavesFall=()=>{
     )
  
    }
+
+  }, 500);
  
 
     // console.log("selected tree")
@@ -574,6 +578,51 @@ function render(timestamp, frame) {
 const elapsedTime = clock.getElapsedTime()
 const deltaTime = elapsedTime - oldElapsedTime
 oldElapsedTime = elapsedTime
+
+if(treeIntersect.length>0){
+    
+  const selectedTree = treeIntersect[0].object
+  let selectedTreeParent;
+  let mixerTree; 
+  let leaveMass;
+  
+  // console.log(treeIntersect[0])
+  switch(selectedTree.name){
+    case "leaves":
+      leaveMass = selectedTree;
+      selectedTreeParent = selectedTree.parent.parent
+      selectedTreeParent.rotation.y +=.005
+
+      break;
+    case "leaves001":
+      leaveMass = selectedTree;
+      selectedTreeParent = selectedTree.parent.parent
+      selectedTreeParent.rotation.y +=.005
+      break;
+
+    case "leaves002":
+      leaveMass = selectedTree;
+      selectedTreeParent = selectedTree.parent.parent
+      selectedTreeParent.rotation.y +=.005
+  break;
+  case "tree":
+  leaveMass = selectedTree.parent.children[0].children[0].children[0];
+  selectedTreeParent = selectedTree.parent
+  selectedTreeParent.rotation.y +=.005
+    break;
+  case "tree001":
+    leaveMass = selectedTree.parent.children[0].children[0].children[0];
+   selectedTreeParent = selectedTree.parent
+   selectedTreeParent.rotation.y +=.005
+    break;
+
+  case "tree002":
+    leaveMass = selectedTree.parent.children[0].children[0].children[0];
+    selectedTreeParent = selectedTree.parent
+    selectedTreeParent.rotation.y +=.005
+
+}
+}
 
 raycaster.setFromCamera(new THREE.Vector3(0,0,-.05).applyMatrix4(controller.matrixWorld), camera)
 intersectsTB = raycaster.intersectObject(treeButton)
